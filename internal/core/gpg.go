@@ -1,8 +1,8 @@
 package core
 
 import (
+	"crypto"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -23,7 +23,7 @@ func GenerateGPGKey(name, email, outDir string) (*GPGResult, error) {
 	}
 
 	cfg := &packet.Config{
-		DefaultHash:   10,
+		DefaultHash:   crypto.SHA256,
 		DefaultCipher: packet.CipherAES256,
 	}
 
@@ -74,5 +74,3 @@ func exportEntity(entity *openpgp.Entity, path string, publicOnly bool) error {
 	}
 	return w.Close()
 }
-
-var _ io.WriteCloser
