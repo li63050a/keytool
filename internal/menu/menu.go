@@ -15,7 +15,7 @@ var reader = bufio.NewReader(os.Stdin)
 func Run() {
 	for {
 		showMain()
-		choice := readLine("请选择 [1-4]: ")
+		choice := readLine("请选择 [1-8]: ")
 		switch choice {
 		case "1":
 			handleGPG()
@@ -24,6 +24,16 @@ func Run() {
 		case "3":
 			handleStats()
 		case "4":
+			handleAESEncrypt()
+		case "5":
+			handleAESDecrypt()
+		case "6":
+			handleGPGEncrypt()
+		case "7":
+			handleGPGSign()
+		case "8":
+			handleCertView()
+		case "0":
 			fmt.Println("再见。")
 			return
 		default:
@@ -41,7 +51,12 @@ func showMain() {
 	fmt.Println("  1. 生成 GPG 密钥")
 	fmt.Println("  2. 生成 SSH 密钥")
 	fmt.Println("  3. 查看密钥统计")
-	fmt.Println("  4. 退出")
+	fmt.Println("  4. 文件加密 (AES-256)")
+	fmt.Println("  5. 文件解密 (AES-256)")
+	fmt.Println("  6. GPG 加密文件")
+	fmt.Println("  7. GPG 签名文件")
+	fmt.Println("  8. 查看 SSL 证书")
+	fmt.Println("  0. 退出")
 	fmt.Println("============================")
 }
 
@@ -138,6 +153,95 @@ func handleStats() {
 	fmt.Printf("  GPG 密钥: %d 个\n", g)
 	fmt.Printf("  SSH 密钥: %d 个\n", s)
 	fmt.Println("  存放目录:", config.KeysDir())
+	pause()
+}
+
+func handleAESEncrypt() {
+	fmt.Println()
+	fmt.Println("---- 文件加密 (AES-256) ----")
+	in := readLine("输入文件路径: ")
+	out := readLine("输出文件路径: ")
+	pw := readLine("密码: ")
+
+	if err := core.EncryptFileAES(pw, in, out); err != nil {
+		fmt.Println("失败:", err)
+		pause()
+		return
+	}
+	fmt.Println("完成！加密文件:", out)
+	pause()
+}
+
+func handleAESDecrypt() {
+	fmt.Println()
+	fmt.Println("---- 文件解密 (AES-256) ----")
+	in := readLine("输入加密文件路径: ")
+	out := readLine("输出文件路径: ")
+	pw := readLine("密码: ")
+
+	if err := core.DecryptFileAES(pw, in, out); err != nil {
+		fmt.Println("失败:", err)
+		pause()
+		return
+	}
+	fmt.Println("完成！解密文件:", out)
+	pause()
+}
+
+func handleGPGEncrypt() {
+	fmt.Println()
+	fmt.Println("---- GPG 加密文件 ----")
+	pub := readLine("公钥路径 (.asc): ")
+	in := readLine("输入文件路径: ")
+	out := readLine("输出文件路径: ")
+
+	if err := core.GPGEncryptFile(pub, in, out); err != nil {
+		fmt.Println("失败:", err)
+		pause()
+		return
+	}
+	fmt.Println("完成！加密文件:", out)
+	pause()
+}
+
+func handleGPGSign() {
+	fmt.Println()
+	fmt.Println("---- GPG 签名文件 ----")
+	priv := readLine("私钥路径 (.asc): ")
+	in := readLine("输入文件路径: ")
+	out := readLine("输出签名路径 (.asc): ")
+
+	if err := core.GPGSignFile(priv, in, out); err != nil {
+		fmt.Println("失败:", err)
+		pause()
+		return
+	}
+	fmt.Println("完成！签名文件:", out)
+	pause()
+}
+
+func handleCertView() {
+	fmt.Println()
+	fmt.Println("---- 查看 SSL 证书 ----")
+	path := readLine("证书文件路径 (.pem/.crt): ")
+
+	info, err := core.ParseCertFile(path)
+	if err != nil {
+		fmt.Println("失败:", err)
+		pause()
+		return
+	}
+
+	fmt.Println()
+	fmt.Println("证书信息:")
+	fmt.Println("  主体:", info.Subject)
+	fmt.Println("  颁发者:", info.Issuer)
+	fmt.Println("  生效:", info.NotBefore.Format("2006-01-02 15:04:05"))
+	fmt.Println("  过期:", info.NotAfter.Format("2006-01-02 15:04:05"))
+	fmt.Println("  是否 CA:", info.IsCA)
+	if len(info.DNSNames) > 0 {
+		fmt.Println("  域名:", strings.Join(info.DNSNames, ", "))
+	}
 	pause()
 }
 

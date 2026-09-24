@@ -1,1 +1,4 @@
 keytool
+*.enc
+*.gpg
+test*.txt
