@@ -19,16 +19,20 @@ func HomeDir() string {
 	return filepath.Join(home, ".li", AppName)
 }
 
-func KeysDir() string    { return filepath.Join(HomeDir(), "keys") }
-func GPGDir() string     { return filepath.Join(KeysDir(), "gpg") }
-func SSHDir() string     { return filepath.Join(KeysDir(), "ssh") }
-func CertDir() string    { return filepath.Join(HomeDir(), "certs") }
-func CsrDir() string     { return filepath.Join(HomeDir(), "csr") }
-func BackupDir() string  { return filepath.Join(HomeDir(), "backup") }
-func LangFile() string   { return filepath.Join(HomeDir(), ".lang") }
+func KeysDir() string   { return filepath.Join(HomeDir(), "keys") }
+func GPGDir() string    { return filepath.Join(KeysDir(), "gpg") }
+func SSHDir() string    { return filepath.Join(KeysDir(), "ssh") }
+func CertDir() string   { return filepath.Join(HomeDir(), "certs") }
+func CADir() string     { return filepath.Join(HomeDir(), "ca") }
+func CsrDir() string    { return filepath.Join(HomeDir(), "csr") }
+func BackupDir() string { return filepath.Join(HomeDir(), "backup") }
+func LangFile() string  { return filepath.Join(HomeDir(), ".lang") }
 
 func EnsureDirs() error {
-	for _, d := range []string{HomeDir(), KeysDir(), GPGDir(), SSHDir(), CertDir(), CsrDir(), BackupDir()} {
+	for _, d := range []string{
+		HomeDir(), KeysDir(), GPGDir(), SSHDir(),
+		CertDir(), CADir(), CsrDir(), BackupDir(),
+	} {
 		if err := os.MkdirAll(d, 0700); err != nil {
 			return err
 		}

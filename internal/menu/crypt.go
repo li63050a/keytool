@@ -9,21 +9,20 @@ import (
 
 func MenuCrypt() {
 	for {
-		Section(i18n.T("crypt.title"))
-		fmt.Printf("  [1] %s\n", i18n.T("crypt.enc"))
-		fmt.Printf("  [2] %s\n", i18n.T("crypt.dec"))
-		fmt.Printf("  [0] %s\n", i18n.T("menu.back"))
-
-		switch ReadLine(i18n.T("menu.select")) {
-		case "1":
+		fmt.Println()
+		fmt.Println("---- " + i18n.T("crypt.title") + " ----")
+		opts := []string{
+			i18n.T("crypt.enc"),
+			i18n.T("crypt.dec"),
+			i18n.T("menu.back"),
+		}
+		switch Select("请选择 / Select: ", opts) {
+		case 0:
 			aesEnc()
-		case "2":
+		case 1:
 			aesDec()
-		case "0":
+		case 2, -1:
 			return
-		default:
-			fmt.Println(i18n.T("menu.invalid"))
-			Pause()
 		}
 	}
 }

@@ -1,7 +1,15 @@
 keytool
 keys/
+certs/
+ca/
+csr/
+backup/
 .lang
 data/
 *.enc
 *.gpg
 *.sig
+*.png
+*.crt
+*.key
+*.pub

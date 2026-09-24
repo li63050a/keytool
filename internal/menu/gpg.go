@@ -2,7 +2,6 @@ package menu
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/li63050a/keytool/internal/config"
 	"github.com/li63050a/keytool/internal/core"
@@ -10,40 +9,45 @@ import (
 )
 
 func MenuGPG() {
+	last := 0
 	for {
-		Section(i18n.T("gpg.title"))
-		fmt.Printf("  [1] %s\n", i18n.T("gpg.gen"))
-		fmt.Printf("  [2] %s\n", i18n.T("gpg.enc"))
-		fmt.Printf("  [3] %s\n", i18n.T("gpg.dec"))
-		fmt.Printf("  [4] %s\n", i18n.T("gpg.sign"))
-		fmt.Printf("  [5] %s\n", i18n.T("gpg.verify"))
-		fmt.Printf("  [6] %s\n", i18n.T("gpg.import"))
-		fmt.Printf("  [7] %s\n", i18n.T("gpg.info"))
-		fmt.Printf("  [8] %s\n", i18n.T("gpg.delete"))
-		fmt.Printf("  [0] %s\n", i18n.T("menu.back"))
-
-		switch ReadLine(i18n.T("menu.select")) {
-		case "1":
-			gpgGen()
-		case "2":
-			gpgEnc()
-		case "3":
-			gpgDec()
-		case "4":
-			gpgSign()
-		case "5":
-			gpgVerify()
-		case "6":
-			gpgImport()
-		case "7":
-			gpgInfo()
-		case "8":
-			gpgDelete()
-		case "0":
+		fmt.Println()
+		fmt.Println("---- " + i18n.T("gpg.title") + " ----")
+		opts := []string{
+			i18n.T("gpg.gen"),
+			i18n.T("gpg.enc"),
+			i18n.T("gpg.dec"),
+			i18n.T("gpg.sign"),
+			i18n.T("gpg.verify"),
+			i18n.T("gpg.import"),
+			i18n.T("gpg.info"),
+			i18n.T("gpg.delete"),
+			i18n.T("menu.back"),
+		}
+		choice := SelectWithDefault("请选择 / Select: ", opts, last)
+		if choice < 0 {
 			return
-		default:
-			fmt.Println(i18n.T("menu.invalid"))
-			Pause()
+		}
+		last = choice
+		switch choice {
+		case 0:
+			gpgGen()
+		case 1:
+			gpgEnc()
+		case 2:
+			gpgDec()
+		case 3:
+			gpgSign()
+		case 4:
+			gpgVerify()
+		case 5:
+			gpgImport()
+		case 6:
+			gpgInfo()
+		case 7:
+			gpgDelete()
+		case 8:
+			return
 		}
 	}
 }
@@ -73,10 +77,18 @@ func gpgGen() {
 
 func gpgEnc() {
 	Section(i18n.T("gpg.enc"))
-	pub := ReadLine("公钥 / Public (.asc): ")
-	in := ReadLine("输入 / Input: ")
-	out := ReadLine("输出 / Output: ")
-	if err := core.GPGEncryptFile(pub, in, out); err != nil {
+	g := PickGPGGroup("选择接收方公钥")
+	if g == nil {
+		return
+	}
+	if !g.HasPublic() {
+		fmt.Println("这组密钥没有公钥，无法加密。")
+		Pause()
+		return
+	}
+	in := ReadLine("输入文件 / Input: ")
+	out := ReadLine("输出文件 / Output: ")
+	if err := core.GPGEncryptFile(g.PublicPath, in, out); err != nil {
 		fmt.Println("失败 / Failed:", err)
 		Pause()
 		return
@@ -87,10 +99,18 @@ func gpgEnc() {
 
 func gpgDec() {
 	Section(i18n.T("gpg.dec"))
-	priv := ReadLine("私钥 / Private (.asc): ")
+	g := PickGPGGroup("选择解密私钥")
+	if g == nil {
+		return
+	}
+	if !g.HasPrivate() {
+		fmt.Println("这组密钥没有私钥，无法解密。")
+		Pause()
+		return
+	}
 	in := ReadLine("加密文件 / Encrypted: ")
-	out := ReadLine("输出 / Output: ")
-	if err := core.GPGDecryptFile(priv, in, out); err != nil {
+	out := ReadLine("输出文件 / Output: ")
+	if err := core.GPGDecryptFile(g.PrivatePath, in, out); err != nil {
 		fmt.Println("失败 / Failed:", err)
 		Pause()
 		return
@@ -101,10 +121,18 @@ func gpgDec() {
 
 func gpgSign() {
 	Section(i18n.T("gpg.sign"))
-	priv := ReadLine("私钥 / Private (.asc): ")
-	in := ReadLine("输入 / Input: ")
-	out := ReadLine("签名 / Signature (.asc): ")
-	if err := core.GPGSignFile(priv, in, out); err != nil {
+	g := PickGPGGroup("选择签名私钥")
+	if g == nil {
+		return
+	}
+	if !g.HasPrivate() {
+		fmt.Println("这组密钥没有私钥，无法签名。")
+		Pause()
+		return
+	}
+	in := ReadLine("输入文件 / Input: ")
+	out := ReadLine("签名输出 / Signature (.asc): ")
+	if err := core.GPGSignFile(g.PrivatePath, in, out); err != nil {
 		fmt.Println("失败 / Failed:", err)
 		Pause()
 		return
@@ -115,10 +143,18 @@ func gpgSign() {
 
 func gpgVerify() {
 	Section(i18n.T("gpg.verify"))
-	pub := ReadLine("公钥 / Public (.asc): ")
+	g := PickGPGGroup("选择签名方公钥")
+	if g == nil {
+		return
+	}
+	if !g.HasPublic() {
+		fmt.Println("这组密钥没有公钥，无法验证。")
+		Pause()
+		return
+	}
 	in := ReadLine("原文件 / Original: ")
-	sig := ReadLine("签名 / Signature: ")
-	if err := core.GPGVerifyFile(pub, in, sig); err != nil {
+	sig := ReadLine("签名文件 / Signature: ")
+	if err := core.GPGVerifyFile(g.PublicPath, in, sig); err != nil {
 		fmt.Println("验证失败 / Verify failed:", err)
 		Pause()
 		return
@@ -146,13 +182,23 @@ func gpgImport() {
 
 func gpgInfo() {
 	Section(i18n.T("gpg.info"))
-	path := ReadLine("密钥路径 / Key path: ")
+	g := PickGPGGroup(i18n.T("gpg.info"))
+	if g == nil {
+		return
+	}
+	var path string
+	if g.HasPrivate() {
+		path = g.PrivatePath
+	} else {
+		path = g.PublicPath
+	}
 	info, err := core.InspectGPGKey(path)
 	if err != nil {
 		fmt.Println("失败 / Failed:", err)
 		Pause()
 		return
 	}
+	fmt.Println("名称 / Name       :", g.Name)
 	fmt.Println("指纹 / Fingerprint:", info.Fingerprint)
 	fmt.Println("创建 / Created    :", info.Created)
 	fmt.Println("含私钥 / Private  :", info.HasPrivate)
@@ -160,23 +206,33 @@ func gpgInfo() {
 	for _, id := range info.Identities {
 		fmt.Println("  -", id)
 	}
+	if g.HasPrivate() {
+		fmt.Println("私钥 / Private    :", g.PrivatePath)
+	}
+	if g.HasPublic() {
+		fmt.Println("公钥 / Public     :", g.PublicPath)
+	}
 	Pause()
 }
 
 func gpgDelete() {
 	Section(i18n.T("gpg.delete"))
-	path := ReadLine("密钥路径 / Key path: ")
-	confirm := ReadLine("确认删除？输入 yes: ")
-	if strings.ToLower(confirm) != "yes" {
+	g := PickGPGGroup(i18n.T("gpg.delete"))
+	if g == nil {
+		return
+	}
+	confirm := Select("确认删除整组密钥（"+g.Name+"）？", []string{"否 / No", "是 / Yes"})
+	if confirm != 1 {
 		fmt.Println("已取消 / Cancelled")
 		Pause()
 		return
 	}
-	if err := core.DeleteSSHKey(path); err != nil {
-		fmt.Println("失败 / Failed:", err)
-		Pause()
-		return
+	if g.PrivatePath != "" {
+		core.DeleteSSHKey(g.PrivatePath)
 	}
-	fmt.Println("已删除 / Deleted")
+	if g.PublicPath != "" {
+		core.DeleteSSHKey(g.PublicPath)
+	}
+	fmt.Println("已删除 / Deleted:", g.Name)
 	Pause()
 }

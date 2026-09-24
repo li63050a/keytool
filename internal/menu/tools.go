@@ -12,33 +12,29 @@ import (
 
 func MenuTools() {
 	for {
-		Section(i18n.T("tools.title"))
-		fmt.Printf("  [1] %s\n", i18n.T("tools.hash"))
-		fmt.Printf("  [2] %s\n", i18n.T("tools.b64e"))
-		fmt.Printf("  [3] %s\n", i18n.T("tools.b64d"))
-		fmt.Printf("  [4] %s\n", i18n.T("tools.backup"))
-		fmt.Printf("  [5] %s\n", i18n.T("tools.restore"))
-		fmt.Printf("  [6] %s\n", i18n.T("tools.qr"))
-		fmt.Printf("  [0] %s\n", i18n.T("menu.back"))
-
-		switch ReadLine(i18n.T("menu.select")) {
-		case "1":
+		fmt.Println()
+		fmt.Println("---- " + i18n.T("tools.title") + " ----")
+		opts := []string{
+			i18n.T("tools.hash"),
+			i18n.T("tools.b64e"),
+			i18n.T("tools.b64d"),
+			i18n.T("tools.backup"),
+			i18n.T("tools.restore"),
+			i18n.T("menu.back"),
+		}
+		switch Select("请选择 / Select: ", opts) {
+		case 0:
 			toolHash()
-		case "2":
+		case 1:
 			toolB64e()
-		case "3":
+		case 2:
 			toolB64d()
-		case "4":
+		case 3:
 			toolBackup()
-		case "5":
+		case 4:
 			toolRestore()
-		case "6":
-			toolQR()
-		case "0":
+		case 5, -1:
 			return
-		default:
-			fmt.Println(i18n.T("menu.invalid"))
-			Pause()
 		}
 	}
 }
@@ -47,20 +43,19 @@ func toolHash() {
 	Section(i18n.T("tools.hash"))
 	in := ReadLine("文件 / File: ")
 	fmt.Println("算法 / Algo:")
-	fmt.Println("  [1] md5")
-	fmt.Println("  [2] sha1")
-	fmt.Println("  [3] sha256")
-	fmt.Println("  [4] sha512")
+	algoOpts := []string{"md5", "sha1", "sha256", "sha512"}
 	algo := "sha256"
-	switch ReadLine("选择 / Select (3): ") {
-	case "1":
+	switch Select("请选择 / Select: ", algoOpts) {
+	case 0:
 		algo = "md5"
-	case "2":
+	case 1:
 		algo = "sha1"
-	case "3":
+	case 2:
 		algo = "sha256"
-	case "4":
+	case 3:
 		algo = "sha512"
+	default:
+		return
 	}
 	h, err := core.HashFile(in, algo)
 	if err != nil {
@@ -121,34 +116,5 @@ func toolRestore() {
 		return
 	}
 	fmt.Println("完成 / Done:", dst)
-	Pause()
-}
-
-func toolQR() {
-	Section(i18n.T("tools.qr"))
-	pub := ReadLine("公钥文件 / Public key: ")
-	out := ReadLine("输出 PNG (留空显示文本): ")
-	if out == "" {
-		content, err := core.ExportPublicKey(pub)
-		if err != nil {
-			fmt.Println("失败 / Failed:", err)
-			Pause()
-			return
-		}
-		s, err := core.GenerateQRCodeString(content)
-		if err != nil {
-			fmt.Println("失败 / Failed:", err)
-			Pause()
-			return
-		}
-		fmt.Println(s)
-	} else {
-		if err := core.QRCodeFromFile(pub, out); err != nil {
-			fmt.Println("失败 / Failed:", err)
-			Pause()
-			return
-		}
-		fmt.Println("完成 / Done:", out)
-	}
 	Pause()
 }
