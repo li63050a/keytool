@@ -28,7 +28,6 @@ func GenerateSSHKey(name, keyType string, bits int, outDir string) (*SSHResult, 
 	if bits == 0 {
 		bits = 4096
 	}
-
 	var priv interface{}
 	switch keyType {
 	case "ed25519":
@@ -46,15 +45,12 @@ func GenerateSSHKey(name, keyType string, bits int, outDir string) (*SSHResult, 
 	default:
 		return nil, fmt.Errorf("不支持的类型: %s", keyType)
 	}
-
 	signer, err := ssh.NewSignerFromKey(priv)
 	if err != nil {
 		return nil, err
 	}
-
 	privPath := filepath.Join(outDir, name+"_"+keyType)
 	pubPath := privPath + ".pub"
-
 	block, err := ssh.MarshalPrivateKey(priv, "")
 	if err != nil {
 		return nil, err
@@ -65,10 +61,5 @@ func GenerateSSHKey(name, keyType string, bits int, outDir string) (*SSHResult, 
 	if err := os.WriteFile(pubPath, ssh.MarshalAuthorizedKey(signer.PublicKey()), 0644); err != nil {
 		return nil, err
 	}
-
-	return &SSHResult{
-		PrivatePath: privPath,
-		PublicPath:  pubPath,
-		Fingerprint: ssh.FingerprintSHA256(signer.PublicKey()),
-	}, nil
+	return &SSHResult{PrivatePath: privPath, PublicPath: pubPath, Fingerprint: ssh.FingerprintSHA256(signer.PublicKey())}, nil
 }

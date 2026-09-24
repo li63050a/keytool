@@ -22,17 +22,14 @@ func ParseCertFile(path string) (*CertInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	block, _ := pem.Decode(data)
 	if block == nil {
 		return nil, fmt.Errorf("无法解析 PEM 格式")
 	}
-
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("解析证书失败: %w", err)
 	}
-
 	return &CertInfo{
 		Subject:   cert.Subject.CommonName,
 		Issuer:    cert.Issuer.CommonName,

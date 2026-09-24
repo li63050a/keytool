@@ -2,3 +2,6 @@ keytool
 keys/
 .lang
 data/
+*.enc
+*.gpg
+*.sig

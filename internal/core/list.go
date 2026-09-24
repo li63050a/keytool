@@ -20,7 +20,6 @@ func ListKeys(dir string) ([]KeyEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	var result []KeyEntry
 	for _, e := range entries {
 		if e.IsDir() {
@@ -31,7 +30,7 @@ func ListKeys(dir string) ([]KeyEntry, error) {
 			continue
 		}
 		name := e.Name()
-		isPub := strings.Contains(name, "public") || strings.HasSuffix(name, ".pub")
+		isPub := strings.Contains(name, "public") || strings.HasSuffix(name, ".pub") || strings.HasSuffix(name, ".crt")
 		result = append(result, KeyEntry{
 			Filename: name,
 			Path:     filepath.Join(dir, name),
@@ -39,7 +38,6 @@ func ListKeys(dir string) ([]KeyEntry, error) {
 			IsPublic: isPub,
 		})
 	}
-
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Filename < result[j].Filename
 	})
@@ -48,7 +46,7 @@ func ListKeys(dir string) ([]KeyEntry, error) {
 
 func FormatKeyList(entries []KeyEntry) string {
 	if len(entries) == 0 {
-		return "  （空）\n"
+		return "  （空 / Empty）\n"
 	}
 	var b strings.Builder
 	for i, e := range entries {
@@ -56,7 +54,7 @@ func FormatKeyList(entries []KeyEntry) string {
 		if e.IsPublic {
 			kind = "公钥"
 		}
-		b.WriteString(fmt.Sprintf("  %d. [%s] %s (%d 字节)\n", i+1, kind, e.Filename, e.Size))
+		b.WriteString(fmt.Sprintf("  %d. [%s] %s (%d B)\n", i+1, kind, e.Filename, e.Size))
 	}
 	return b.String()
 }
@@ -67,4 +65,18 @@ func ExportPublicKey(path string) (string, error) {
 		return "", err
 	}
 	return string(data), nil
+}
+
+func CountFiles(dir string) (int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, e := range entries {
+		if !e.IsDir() {
+			n++
+		}
+	}
+	return n, nil
 }
