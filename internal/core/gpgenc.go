@@ -17,7 +17,7 @@ func LoadPublicKeyRing(path string) (openpgp.EntityList, error) {
 	return openpgp.ReadArmoredKeyRing(f)
 }
 
-func LoadPrivateKeyRing(path, password string) (openpgp.EntityList, error) {
+func LoadPrivateKeyRing(path string) (openpgp.EntityList, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func GPGEncryptFile(pubKeyPath, inputPath, outPath string) error {
 }
 
 func GPGDecryptFile(privKeyPath, inputPath, outPath string) error {
-	entities, err := LoadPrivateKeyRing(privKeyPath, "")
+	entities, err := LoadPrivateKeyRing(privKeyPath)
 	if err != nil {
 		return fmt.Errorf("加载私钥失败: %w", err)
 	}
@@ -84,7 +84,7 @@ func GPGDecryptFile(privKeyPath, inputPath, outPath string) error {
 }
 
 func GPGSignFile(privKeyPath, inputPath, outPath string) error {
-	entities, err := LoadPrivateKeyRing(privKeyPath, "")
+	entities, err := LoadPrivateKeyRing(privKeyPath)
 	if err != nil {
 		return fmt.Errorf("加载私钥失败: %w", err)
 	}
@@ -104,24 +104,17 @@ func GPGSignFile(privKeyPath, inputPath, outPath string) error {
 	}
 	defer out.Close()
 
-	err = openpgp.ArmoredDetachSign(out, entities[0], in, nil)
-	if err != nil {
+	if err := openpgp.ArmoredDetachSign(out, entities[0], in, nil); err != nil {
 		return fmt.Errorf("签名失败: %w", err)
 	}
 	return nil
 }
 
-func GPGVerifyFile(pubKeyPath, sigPath, inputPath string) error {
+func GPGVerifyFile(pubKeyPath, inputPath, sigPath string) error {
 	entities, err := LoadPublicKeyRing(pubKeyPath)
 	if err != nil {
 		return fmt.Errorf("加载公钥失败: %w", err)
 	}
-
-	sig, err := os.Open(sigPath)
-	if err != nil {
-		return err
-	}
-	defer sig.Close()
 
 	in, err := os.Open(inputPath)
 	if err != nil {
@@ -129,8 +122,13 @@ func GPGVerifyFile(pubKeyPath, sigPath, inputPath string) error {
 	}
 	defer in.Close()
 
-	_, err = openpgp.CheckArmoredDetachedSignature(entities, in, sig, nil)
+	sig, err := os.Open(sigPath)
 	if err != nil {
+		return err
+	}
+	defer sig.Close()
+
+	if _, err := openpgp.CheckArmoredDetachedSignature(entities, in, sig, nil); err != nil {
 		return fmt.Errorf("签名验证失败: %w", err)
 	}
 	return nil

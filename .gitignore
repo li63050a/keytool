@@ -1,4 +1,4 @@
 keytool
-*.enc
-*.gpg
-test*.txt
+keys/
+.lang
+data/
