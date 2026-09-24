@@ -1,6 +1,7 @@
 package menu
 
 import (
+	"path/filepath"
 	"fmt"
 	"strings"
 
@@ -17,6 +18,10 @@ func MenuCert() {
 		opts := []string{
 			"CA 管理",
 			"签发证书（用 CA）",
+			"证书续期",
+			"证书吊销（生成 CRL）",
+			"查看 CRL 内容",
+			"导出证书链",
 			"生成自签名证书",
 			"查看证书信息",
 			"生成 CSR",
@@ -35,16 +40,24 @@ func MenuCert() {
 		case 1:
 			menuIssue()
 		case 2:
-			certSelfGen()
+			certRenew()
 		case 3:
-			certView()
+			certRevoke()
 		case 4:
-			certCSR()
+			certCRLView()
 		case 5:
-			certCheck()
+			certExportChain()
 		case 6:
-			certChain()
+			certSelfGen()
 		case 7:
+			certView()
+		case 8:
+			certCSR()
+		case 9:
+			certCheck()
+		case 10:
+			certChain()
+		case 11:
 			return
 		}
 	}
@@ -92,7 +105,6 @@ func caGenRoot() {
 	days := ReadLine("有效天数 / Days (默认3650): ")
 	d := 3650
 	fmt.Sscanf(days, "%d", &d)
-
 	fmt.Println("生成中... / Generating...")
 	res, err := core.GenerateRootCA(name, d, config.HomeDir())
 	if err != nil {
@@ -103,7 +115,7 @@ func caGenRoot() {
 	fmt.Println("完成 / Done")
 	fmt.Println("  证书 / Cert:", res.CertPath)
 	fmt.Println("  私钥 / Key :", res.KeyPath)
-	fmt.Println("  提示：私钥请离线保管，不要泄露。")
+	fmt.Println("  提示：私钥请离线保管。")
 	Pause()
 }
 
@@ -113,7 +125,7 @@ func caGenIntermediate() {
 	if parent == nil {
 		return
 	}
-	name := ReadLine("中间 CA 名称（如 My Intermediate CA）: ")
+	name := ReadLine("中间 CA 名称: ")
 	if name == "" {
 		fmt.Println("名称不能为空")
 		Pause()
@@ -122,7 +134,6 @@ func caGenIntermediate() {
 	days := ReadLine("有效天数 / Days (默认1825): ")
 	d := 1825
 	fmt.Sscanf(days, "%d", &d)
-
 	fmt.Println("生成中... / Generating...")
 	res, err := core.GenerateIntermediateCA(name, parent, d, config.HomeDir())
 	if err != nil {
@@ -199,7 +210,6 @@ func issueLeaf(isServer, isClient bool, label string) {
 	if parent == nil {
 		return
 	}
-
 	cn := ReadLine("CN (域名/用户名): ")
 	if cn == "" {
 		fmt.Println("CN 不能为空")
@@ -247,11 +257,137 @@ func issueLeaf(isServer, isClient bool, label string) {
 	fmt.Println("  私钥 / Key   :", res.KeyPath)
 	fmt.Println("  主体 / Subject:", res.Subject)
 	fmt.Println("  签发 / Issuer :", res.Issuer)
-	fmt.Println("  提示：证书文件已包含完整链。")
 	Pause()
 }
 
-// ---------- 自签名（保留） ----------
+// ---------- 续期 ----------
+
+func certRenew() {
+	Section("证书续期")
+	certPath := SelectFile("选择要续期的证书", config.CertDir(), []string{".crt"}, nil, 0)
+	if certPath == "" {
+		return
+	}
+	base := strings.TrimSuffix(filepath.Base(certPath), ".crt")
+	keyPath := filepath.Join(filepath.Dir(certPath), base+".key")
+
+	parent := PickCA("选择签发用 CA")
+	if parent == nil {
+		return
+	}
+	days := ReadLine("新有效天数 / Days (默认365): ")
+	d := 365
+	fmt.Sscanf(days, "%d", &d)
+
+	reuse := Select("是否复用旧私钥？", []string{"否 / No（生成新私钥）", "是 / Yes（复用旧私钥）"})
+	if reuse < 0 {
+		return
+	}
+
+	fmt.Println("续期中... / Renewing...")
+	res, err := core.RenewCert(certPath, keyPath, parent, core.RenewOptions{Days: d}, reuse == 1, config.CertDir())
+	if err != nil {
+		fmt.Println("失败 / Failed:", err)
+		Pause()
+		return
+	}
+	fmt.Println("完成 / Done")
+	fmt.Println("  证书 / Cert  :", res.CertPath)
+	fmt.Println("  私钥 / Key   :", res.KeyPath)
+	fmt.Println("  主体 / Subject:", res.Subject)
+	fmt.Println("  签发 / Issuer :", res.Issuer)
+	Pause()
+}
+
+// ---------- 吊销 ----------
+
+func certRevoke() {
+	Section("证书吊销（生成 CRL）")
+	ca := PickCA("选择签发 CRL 的 CA")
+	if ca == nil {
+		return
+	}
+
+	var revoked []string
+	for {
+		c := SelectFile("选择要吊销的证书（可多次）", config.CertDir(), []string{".crt"}, nil, 0)
+		if c == "" {
+			break
+		}
+		revoked = append(revoked, c)
+		more := Select("继续添加？", []string{"否 / No", "是 / Yes"})
+		if more != 1 {
+			break
+		}
+	}
+	if len(revoked) == 0 {
+		fmt.Println("没有选择任何证书")
+		Pause()
+		return
+	}
+
+	fmt.Println("生成中... / Generating...")
+	out, err := core.RevokeCert(ca, revoked, config.CADir())
+	if err != nil {
+		fmt.Println("失败 / Failed:", err)
+		Pause()
+		return
+	}
+	fmt.Println("完成 / Done")
+	fmt.Println("  CRL:", out)
+	fmt.Printf("  已吊销 %d 张证书\n", len(revoked))
+	Pause()
+}
+
+func certCRLView() {
+	Section("查看 CRL 内容")
+	path := SelectFile("选择 CRL 文件", config.CADir(), []string{".crl"}, nil, 0)
+	if path == "" {
+		return
+	}
+	entries, err := core.ParseCRL(path)
+	if err != nil {
+		fmt.Println("失败 / Failed:", err)
+		Pause()
+		return
+	}
+	if len(entries) == 0 {
+		fmt.Println("  （没有吊销记录）")
+		Pause()
+		return
+	}
+	for i, e := range entries {
+		fmt.Printf("  %d. 序列号: %s\n", i+1, e.Serial)
+		fmt.Printf("     吊销时间: %s\n", e.RevokedAt.Format("2006-01-02 15:04:05"))
+	}
+	Pause()
+}
+
+// ---------- 导出链 ----------
+
+func certExportChain() {
+	Section("导出证书链")
+	certPath := SelectFile("选择证书", config.CertDir(), []string{".crt"}, nil, 0)
+	if certPath == "" {
+		return
+	}
+	base := strings.TrimSuffix(filepath.Base(certPath), ".crt")
+	outPath := filepath.Join(config.CertDir(), base+"-chain.pem")
+
+	fmt.Println("导出中... / Exporting...")
+	n, err := core.ExportChain(certPath, outPath)
+	if err != nil {
+		fmt.Println("失败 / Failed:", err)
+		Pause()
+		return
+	}
+	fmt.Println("完成 / Done")
+	fmt.Println("  输出:", outPath)
+	fmt.Printf("  包含 %d 张证书（从叶子到根）\n", n)
+	Pause()
+}
+
+// ---------- 自签名 ----------
 
 func certSelfGen() {
 	Section("生成自签名证书")
@@ -282,11 +418,14 @@ func certSelfGen() {
 	Pause()
 }
 
-// ---------- 其他（保留） ----------
+// ---------- 其他 ----------
 
 func certView() {
 	Section("查看证书信息")
-	path := ReadLine("证书路径 / Cert: ")
+	path := SelectFile("选择证书", config.CertDir(), []string{".crt", ".pem"}, nil, 0)
+	if path == "" {
+		return
+	}
 	info, err := core.ParseCertFile(path)
 	if err != nil {
 		fmt.Println("失败 / Failed:", err)
